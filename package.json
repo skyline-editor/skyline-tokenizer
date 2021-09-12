@@ -1,0 +1,20 @@
+{
+  "name": "skyline-tokenizer",
+  "version": "0.0.1",
+  "description": "The tokenizing module in skyline-editor",
+  "main": "dist/index.js",
+  "scripts": {},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/skyline-editor/skyline-tokenizer.git"
+  },
+  "author": "firecraftgaming",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/skyline-editor/skyline-tokenizer/issues"
+  },
+  "homepage": "https://github.com/skyline-editor/skyline-tokenizer#readme",
+  "devDependencies": {
+    "typescript": "^4.4.3"
+  }
+}
