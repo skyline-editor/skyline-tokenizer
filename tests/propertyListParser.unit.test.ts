@@ -47,6 +47,15 @@ should;
     const result = PropertyListParser.parse(`'Hello ''World'''`);
     expect(result).to.equal('Hello \'World\'');
   }
+  @test 'test double quote strings with single quote inside'() {
+    const result = PropertyListParser.parse(`"Hello 'World'"`);
+    expect(result).to.equal('Hello \'World\'');
+  }
+  @test 'test single quote strings with double quote inside'() {
+    const result = PropertyListParser.parse(`'Hello "World"'`);
+    expect(result).to.equal('Hello "World"');
+  }
+
 
   @test 'test double quote strings with escaped quotes and escaped backslash'() {
     const result = PropertyListParser.parse(`"Hello \\"World\\" \\\\ "`);
@@ -114,5 +123,93 @@ should;
   @test 'test newline and space before and after strings with escaped quotes and escaped backslash'() {
     const result = PropertyListParser.parse(`\n "Hello \\"World\\" \\\\ "`);
     expect(result).to.equal('Hello "World" \\ ');
+  }
+
+
+  @test 'test empty array'() {
+    const result = PropertyListParser.parse(`()`);
+    expect(result).to.deep.equal([]);
+  }
+  @test 'test array with nested empty array'() {
+    const result = PropertyListParser.parse(`(())`);
+    expect(result).to.deep.equal([[]]);
+  }
+
+  @test 'test array with quoted string'() {
+    const result = PropertyListParser.parse(`("foo","bar","fud")`);
+    expect(result).to.deep.equal([ 'foo', 'bar', 'fud' ]);
+  }
+  @test 'test array with unquoted strings'() {
+    const result = PropertyListParser.parse(`(Foo,_abcd_,bar)`);
+    expect(result).to.deep.equal([ 'Foo', '_abcd_', 'bar' ]);
+  }
+  @test 'test array with mixed strings'() {
+    const result = PropertyListParser.parse(`("Hello World!",FooBar,_under_score__,bar)`);
+    expect(result).to.deep.equal([ 'Hello World!', 'FooBar', '_under_score__', 'bar' ]); 
+  }
+
+  @test 'test array with nested array with quoted strings'() {
+    const result = PropertyListParser.parse(`(("foo","bar","fud"))`);
+    expect(result).to.deep.equal([[ 'foo', 'bar', 'fud' ]]);
+  }
+  @test 'test array with mixed nested strings'() {
+    const result = PropertyListParser.parse(`("Hello World!",FooBar,(abcd,_abc,"Hi"))`);
+    expect(result).to.deep.equal([ 'Hello World!', 'FooBar', [ 'abcd', '_abc', 'Hi' ] ]);
+  }
+
+  @test 'test spaced array'() {
+    const result = PropertyListParser.parse(` ( "Hello World!" , FooBar , _under_score__ , bar ) `);
+    expect(result).to.deep.equal([ 'Hello World!', 'FooBar', '_under_score__', 'bar' ]);
+  }
+  @test 'test spaced array with nested array'() {
+    const result = PropertyListParser.parse(` ( ("Hello World!" , FooBar , _under_score__ , bar ) ) `);
+    expect(result).to.deep.equal([[ 'Hello World!', 'FooBar', '_under_score__', 'bar' ]]);
+  }
+
+
+  @test 'test empty dictionary'() {
+    const result = PropertyListParser.parse(`{}`);
+    expect(result).to.deep.equal({});
+  }
+  @test 'test dictionary with quoted string'() {
+    const result = PropertyListParser.parse(`{"foo"="bar";"fud"="fud";}`);
+    expect(result).to.deep.equal({ 'foo': 'bar', 'fud': 'fud' });
+  }
+  @test 'test dictionary with unquoted strings'() {
+    const result = PropertyListParser.parse(`{Foo=_abcd_;bar=bar;}`);
+    expect(result).to.deep.equal({ 'Foo': '_abcd_', 'bar': 'bar' });
+  }
+  @test 'test dictionary with mixed strings'() {
+    const result = PropertyListParser.parse(`{Foo="Hello World!";_under_score__=bar;}`);
+    expect(result).to.deep.equal({ 'Foo': 'Hello World!', '_under_score__': 'bar' });
+  }
+  @test 'test dictionary with nested array with quoted strings'() {
+    const result = PropertyListParser.parse(`{"foo"=("bar","fud","fud");}`);
+    expect(result).to.deep.equal({ 'foo': [ 'bar', 'fud', 'fud' ] });
+  }
+  @test 'test dictionary with nested dictionary with quoted strings'() {
+    const result = PropertyListParser.parse(`{"foo"={"bar"="fud";};}`);
+    expect(result).to.deep.equal({ 'foo': { 'bar': 'fud' } });
+  }
+  @test 'test array with nested dictionary with quoted strings'() {
+    const result = PropertyListParser.parse(`({"foo"="bar";},{"fud"="fud";})`);
+    expect(result).to.deep.equal([{ 'foo': 'bar' }, { 'fud': 'fud' }]);
+  }
+
+  @test 'test spaced dictionary'() {
+    const result = PropertyListParser.parse(` { "foo" = "bar"; "fud" = "fud"; } `);
+    expect(result).to.deep.equal({ 'foo': 'bar', 'fud': 'fud' });
+  }
+  @test 'test spaced dictionary with nested array'() {
+    const result = PropertyListParser.parse(` { "foo" = ( "bar" , "fud" , "fud" ); } `);
+    expect(result).to.deep.equal({ 'foo': [ 'bar', 'fud', 'fud' ] });
+  }
+  @test 'test spaced dictionary with nested dictionary'() {
+    const result = PropertyListParser.parse(` { "foo" = { "bar" = "fud"; }; } `);
+    expect(result).to.deep.equal({ 'foo': { 'bar': 'fud' } });
+  }
+  @test 'test spaced dictionary with nested array with dictionary'() {
+    const result = PropertyListParser.parse(` { "foo" = ( { "bar" = "fud"; } ); } `);
+    expect(result).to.deep.equal({ 'foo': [ { 'bar': 'fud' } ] });
   }
 }
