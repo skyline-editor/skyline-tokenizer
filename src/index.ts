@@ -1,3 +1,3 @@
 import { LanguageParser } from "./languageParser";
-const parser = new LanguageParser('./language.plist');
-parser.read('./test.txt');
+const parser = new LanguageParser('../tests/language.plist');
+parser.read('../tests/test.txt');
