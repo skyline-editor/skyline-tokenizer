@@ -5,57 +5,154 @@ import { expect } from 'chai';
 
 should;
 @suite class LanguageParserUnitTests {
+  private config: LanguageConfig;
+
   before() {
-
-  }
-
-  @test 'test basic language config'() {
-    const config: LanguageConfig = {
-      "scopeName": "source.abc",
-      "patterns": [{ "include": "#expression" }],
-      "repository": {
-        "expression": {
-          "patterns": [{ "include": "#letter" }, { "include": "#paren-expression" }]
+    this.config = {
+      scopeName: 'source.abc',
+      patterns: [
+        {
+          include: '#expression'
+        }
+      ],
+      repository: {
+        'expression': {
+          patterns: [
+            { include: '#selector' },
+            { include: '#keyword' },
+            { include: '#string' },
+            { include: '#letter' },
+            { include: '#paren-expression' }
+          ]
         },
-        "letter": {
-          "match": "a|b|c",
-          "name": "keyword.letter"
+        'selector': {
+          match: '(@selector\\()(.*?)(\\))',
+          captures: {
+            1: { name: 'storage.type.objc' },
+            3: { name: 'storage.type.objc' }
+          }
         },
-        "paren-expression": {
-          "begin": "\\(",
-          "end": "\\)",
-          "beginCaptures": {
-            "0": { "name": "punctuation.paren.open" }
+        'keyword': {
+          name: 'keyword.control.untitled',
+          match: '\b(if|while|for|return)\b'
+        },
+        'string': {
+          name: 'string.quoted.double.untitled',
+          begin: '"',
+          end: '"',
+          patterns: [
+            {
+              name: 'constant.character.escape.untitled',
+              match: '\\\\.'
+            }
+          ]
+        },
+        'letter': {
+          match: 'a|b|c',
+          name: 'keyword.letter'
+        },
+        'paren-expression': {
+          begin: '\\(',
+          end: '\\)',
+          beginCaptures: {
+            0: {
+              name: 'punctuation.paren.open'
+            }
           },
-          "endCaptures": {
-            "0": { "name": "punctuation.paren.close" }
+          endCaptures: {
+            0: {
+              name: 'punctuation.paren.close'
+            }
           },
-          "name": "expression.group",
-          "patterns": [
-            { "include": "#expression" }
+          name: 'expression.group',
+          patterns: [
+            {
+              include: '#expression'
+            }
           ]
         }
       }
     };
+  }
+
+  @test 'test basic language'() {
     const input = `a ( b )`;
-    const languageParser = new LanguageParser(config);
+    const languageParser = new LanguageParser(this.config);
     const result = languageParser.parse(input);
     expect(result).to.deep.equal([
       {
-        "name": "keyword.letter",
-        "scopes": ["source.abc", "keyword.letter"]
+        scopes: ['keyword.letter', 'source.abc'],
+
+        start: 0,
+        end: 1,
       },
       {
-        "name": "punctuation.paren.open",
-        "scopes": ["source.abc", "expression.group", "punctuation.paren.open"]
+        scopes: ['expression.group', 'source.abc'],
+
+        start: 2,
+        end: 7,
       },
       {
-        "name": "keyword.letter",
-        "scopes": ["source.abc", "expression.group", "keyword.letter"]
+        scopes: ['punctuation.paren.open', 'expression.group', 'source.abc'],
+
+        start: 2,
+        end: 3,
       },
       {
-        "name": "punctuation.paren.close",
-        "scopes": ["source.abc", "expression.group", "punctuation.paren.close"]
+        scopes: ['keyword.letter', 'expression.group', 'source.abc'],
+
+        start: 4,
+        end: 5,
+      },
+      {
+        scopes: ['punctuation.paren.close', 'expression.group', 'source.abc'],
+
+        start: 6,
+        end: 7,
+      }
+    ]);
+  }
+  @test 'test language with captures'() {
+    const input = `@selector(abce)`;
+    const languageParser = new LanguageParser(this.config);
+    const result = languageParser.parse(input);
+    expect(result).to.deep.equal([
+      {
+        scopes: ['storage.type.objc', 'source.abc'],
+
+        start: 0,
+        end: 10,
+      },
+      {
+        scopes: ['storage.type.objc', 'source.abc'],
+
+        start: 14,
+        end: 15,
+      }
+    ]);
+  }
+  @test 'test language with strings'() {
+    const input = `"Hello \\"World\\"!"`;
+    const languageParser = new LanguageParser(this.config);
+    const result = languageParser.parse(input);
+    expect(result).to.deep.equal([
+      {
+        scopes: ['string.quoted.double.untitled', 'source.abc'],
+
+        start: 0,
+        end: 18,
+      },
+      {
+        scopes: ['constant.character.escape.untitled', 'string.quoted.double.untitled', 'source.abc'],
+
+        start: 7,
+        end: 9,
+      },
+      {
+        scopes: ['constant.character.escape.untitled', 'string.quoted.double.untitled', 'source.abc'],
+
+        start: 14,
+        end: 16,
       }
     ]);
   }
