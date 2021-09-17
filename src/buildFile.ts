@@ -79,8 +79,9 @@ export class BinaryLanguageFile {
     
   }
 
-  static build(input: Result): Uint8Array {
-    return new Uint8Array(0);
+  static build(input: Result[], schema = this.languageSchema): Uint8Array {
+    const result = this.buildSchema(input, schema);
+    return result;
   }
 
   static buildType(type: SchemaType, value: Result): Uint8Array {
@@ -181,10 +182,57 @@ export class BinaryLanguageFile {
     return bytes;
   }
   static buildSchema(values: Array<Result>, structure: Schema): Uint8Array {
-    return new Uint8Array(0);
+    const required: Array<Uint8Array> = [];
+    const optionals: Array<Uint8Array> = [];
+    let length = 0;
+
+    for (let i = 0; i < structure.required.length; i++) {
+      const value = values[i];
+      const type = structure.required[i];
+      
+      const bytes = this.buildType(type, value);
+      required.push(bytes);
+      length += bytes.length;
+    }
+
+    let optional = 0;
+
+    for (let i = 0; i < structure.optionals.length; i++) {
+      const value = values[i + structure.required.length];
+      const type = structure.optionals[i];   
+      
+      if (value !== null) {
+        const bytes = this.buildType(type, value);
+        optionals.push(bytes);
+        length += bytes.length;
+
+        optional |= 1 << i;
+      }
+    }
+    
+    const optional_bytes = this.buildNumber(optional);
+    length += optional_bytes.length;
+
+    const bytes = new Uint8Array(length);
+
+    let index = 0;
+    for (let i = 0; i < required.length; i++) {
+      bytes.set(required[i], index);
+      index += required[i].length;
+    }
+
+    bytes.set(optional_bytes, index);
+    index += optional_bytes.length;
+
+    for (let i = 0; i < optionals.length; i++) {
+      bytes.set(optionals[i], index);
+      index += optionals[i].length;
+    }
+
+    return bytes;
   }
 
-  static parse(bytes: Uint8Array, schema = this.languageSchema): Result {
+  static parse(bytes: Uint8Array, schema = this.languageSchema): Result[] {
     const [result, _] = this.parseSchema(bytes, 0, schema);
     return result;
   }
@@ -247,7 +295,7 @@ export class BinaryLanguageFile {
     
     return [values, pos];
   }
-  static parseSchema(bytes: Uint8Array, pos: number, structure: Schema): [Result, number] {
+  static parseSchema(bytes: Uint8Array, pos: number, structure: Schema): [Result[], number] {
     const schema = structure;
     const result = [];
 
@@ -280,7 +328,7 @@ export class BinaryLanguageFile {
   static stringToBinary(str: string) {
     const bytes = new Uint8Array(str.length);
 
-    for (let i = 0; i < str.length; i++) bytes[i + 1] = str.charCodeAt(i);
+    for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i);
     return bytes;
   }
 
