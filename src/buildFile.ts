@@ -20,7 +20,7 @@ export type Schema = {
   optionals: Array<SchemaType>;
 };
 
-export type Result = Array<string | Array<Result>>;
+export type Result = string | Array<Result>;
 export type SchemaType = SchemaString | SchemaTuple | SchemaArray | Schema;
 
 export const string = (): SchemaString => ({
@@ -75,8 +75,113 @@ export class BinaryLanguageFile {
     return language;
   }
 
-  static build(language: LanguageConfig) {
+  static buildLanguage(language: LanguageConfig) {
     
+  }
+
+  static build(input: Result): Uint8Array {
+    return new Uint8Array(0);
+  }
+
+  static buildType(type: SchemaType, value: Result): Uint8Array {
+    switch (type.type) {
+      case 'string':
+        if (typeof value !== 'string') return new Uint8Array(0);
+        return this.buildString(value, type);
+      case 'tuple':
+        if (!Array.isArray(value)) return new Uint8Array(0);
+        return this.buildTuple(value, type);
+      case 'array':
+        if (!Array.isArray(value)) return new Uint8Array(0);
+        return this.buildArray(value, type);
+      case 'schema':
+        if (!Array.isArray(value)) return new Uint8Array(0);
+        return this.buildSchema(value, type);
+    }
+  }
+
+  static buildNumber(value: number): Uint8Array {
+    let length = 1;
+
+    {
+      let v = value;
+      while (v > 0x7f) {
+        length++;
+        v >>= 7;
+      }
+    }
+
+    let bytes = new Uint8Array(length);
+    let i = 0;
+
+    while (value > 0x7f) {
+      bytes[i++] = (value & 0x7f) | 0x80;
+      value = value >> 7;
+    }
+
+    bytes[i++] = value;
+    return bytes;
+  }
+
+  static buildString(str: string, _structure: SchemaString): Uint8Array {
+    const string = this.stringToBinary(str);
+    const number = this.buildNumber(string.length);
+
+    const bytes = new Uint8Array(string.length + number.length);
+    bytes.set(number, 0);
+    bytes.set(string, number.length);
+
+    return bytes;
+  }
+
+  static buildTuple(values: Array<Result>, structure: SchemaTuple): Uint8Array {
+    let results: Array<Uint8Array> = [];
+    let length = 0;
+
+    for (let i = 0; i < structure.values.length; i++) {
+      const value = values[i];
+      const type = structure.values[i];
+      
+      const bytes = this.buildType(type, values[i]);
+      results.push(bytes);
+      length += bytes.length;
+    }
+
+    const bytes = new Uint8Array(length);
+
+    let pos = 0;
+    for (let i = 0; i < results.length; i++) {
+      bytes.set(results[i], pos);
+      pos += results[i].length;
+    }
+
+    return bytes;
+  }
+  static buildArray<T extends Result>(values: Array<T>, structure: SchemaArray): Uint8Array {
+    let results: Array<Uint8Array> = [];
+    let length = 0;
+
+    for (let i = 0; i < values.length; i++) {
+      const value = values[i];
+      const type = structure.value;
+      
+      const bytes = this.buildType(type, values[i]);
+      results.push(bytes);
+      length += bytes.length;
+    }
+
+    const bytes = new Uint8Array(length);
+
+    let pos = 0;
+    for (let i = 0; i < results.length; i++) {
+      bytes.set(results[i], pos);
+      pos += results[i].length;
+    }
+
+    return bytes;
+  }
+  static buildSchema(values: Array<Result>, structure: Schema): Uint8Array {
+    return new Uint8Array(0);
   }
 
   static parse(bytes: Uint8Array, schema = this.languageSchema): Result {
@@ -109,7 +214,7 @@ export class BinaryLanguageFile {
     return [value, pos + i + 1];
   }
 
-  static parseString(bytes: Uint8Array, pos: number, structure: SchemaString): [Result, number] {
+  static parseString(bytes: Uint8Array, pos: number, _structure: SchemaString): [Result, number] {
     let length: number;
     [length, pos] = this.parseNumber(bytes, pos);
 
@@ -173,8 +278,7 @@ export class BinaryLanguageFile {
   }
 
   static stringToBinary(str: string) {
-    const bytes = new Uint8Array(str.length + 1);
-    bytes[0] = str.length;
+    const bytes = new Uint8Array(str.length);
 
     for (let i = 0; i < str.length; i++) bytes[i + 1] = str.charCodeAt(i);
     return bytes;
