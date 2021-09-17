@@ -1,4 +1,4 @@
-import { LanguageConfig } from "languageParser";
+import { LanguageConfig, LanguageParser, LanguagePattern } from "languageParser";
 
 export type SchemaString = {
   type: 'string';
@@ -75,11 +75,31 @@ export class BinaryLanguageFile {
     return language;
   }
 
-  static buildLanguage(language: LanguageConfig) {
-    
+  static buildPatterns(patterns: LanguagePattern[]) {
+    return [];
+  }
+  static buildRepository(repository: {[key: string]: LanguagePattern}) {
+    return []
   }
 
-  static build(input: Result[], schema = this.languageSchema): Uint8Array {
+  static buildLanguage(language: LanguageConfig) {
+    const data = [
+      // required
+      language.scopeName,
+      language.fileTypes,
+      language.foldingStartMarker,
+      language.foldingStopMarker,
+      this.buildPatterns(language.patterns),
+
+      // optional
+      language.firstLineMatch ?? null,
+      language.repository ? this.buildRepository(language.repository) : null
+    ];
+
+    return this.build(data, this.languageSchema);
+  }
+
+  static build(input: Result[], schema: Schema): Uint8Array {
     const result = this.buildSchema(input, schema);
     return result;
   }
@@ -159,8 +179,9 @@ export class BinaryLanguageFile {
     return bytes;
   }
   static buildArray<T extends Result>(values: Array<T>, structure: SchemaArray): Uint8Array {
-    let results: Array<Uint8Array> = [];
-    let length = 0;
+    const number = this.buildNumber(values.length);
+    let results: Array<Uint8Array> = [ number ];
+    let length = number.length
 
     for (let i = 0; i < values.length; i++) {
       const value = values[i];
@@ -232,7 +253,30 @@ export class BinaryLanguageFile {
     return bytes;
   }
 
-  static parse(bytes: Uint8Array, schema = this.languageSchema): Result[] {
+  static parsePatterns(patterns: Array<Result>): Array<LanguagePattern> {
+    return [];
+  }
+  static parseRepository(patterns: Array<Result>): {[key: string]: LanguagePattern} {
+    return {};
+  }
+
+  static parseLanguage(bytes: Uint8Array) {
+    const data = this.parse(bytes, this.languageSchema);
+    const language = {
+      scopeName: data[0] as string,
+      fileTypes: data[1] as Array<string>,
+      foldingStartMarker: data[2] as string,
+      foldingStopMarker: data[3] as string,
+      patterns: this.parsePatterns(data[4] as Array<Result>),
+
+      firstLineMatch: data[5] ?? null,
+      repository: data[6] ? this.parseRepository(data[6] as Array<Result>) : null,
+    } as LanguageConfig;
+
+    return language;
+  }
+
+  static parse(bytes: Uint8Array, schema: Schema): Result[] {
     const [result, _] = this.parseSchema(bytes, 0, schema);
     return result;
   }

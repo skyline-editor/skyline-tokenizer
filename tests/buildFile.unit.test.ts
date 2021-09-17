@@ -1,7 +1,8 @@
 import { suite, test, should } from './utility';
 import { mock, instance } from 'ts-mockito';
-import { BinaryLanguageFile, schema, string } from '../src/buildFile';
+import { array, BinaryLanguageFile, schema, string } from '../src/buildFile';
 import { expect } from 'chai';
+import { LanguageConfig } from '../src/languageParser';
 
 should;
 @suite class HighlighterUnitTests {
@@ -67,6 +68,13 @@ should;
 
     expect(built).to.deep.equal(new Uint8Array([ 0x03, 0x41, 0x42, 0x43, 0x00 ]));
   }
+  @test 'test building binary schema with an array'() {
+    const test_schema = schema([ array(string()) ], []);
+    const result = [ [ 'ABC' ] ];
+    const built = BinaryLanguageFile.build(result, test_schema);
+
+    expect(built).to.deep.equal(new Uint8Array([ 0x01, 0x03, 0x41, 0x42, 0x43, 0x00 ]));
+  }
   @test 'test building binary schema with multiple strings'() {
     const test_schema = schema([ string(), string(), string() ], []);
     const result = [ 'ABC', 'DEF', 'GHI' ];
@@ -94,5 +102,31 @@ should;
     const built = BinaryLanguageFile.build(result, test_schema);
 
     expect(built).to.deep.equal(new Uint8Array([ 0x03, 0x41, 0x42, 0x43,  0x03, 0x44, 0x45, 0x46,  0x03, 0x47, 0x48, 0x49,  0x02,  0x03, 0x4D, 0x4E, 0x4F ]));
+  }
+
+  @test 'test building and parsing language config'() {
+    const config = {
+      scopeName: 'hello',
+      fileTypes: ['abc', 'def'],
+      foldingStartMarker: 'aa',
+      foldingStopMarker: 'bb',
+      patterns: [],
+
+      repository: {}
+    } as LanguageConfig;
+
+    const binary = BinaryLanguageFile.buildLanguage(config);
+    const data = BinaryLanguageFile.parseLanguage(binary);
+
+    expect(data).to.deep.equal({
+      scopeName: 'hello',
+      fileTypes: ['abc', 'def'],
+      foldingStartMarker: 'aa',
+      foldingStopMarker: 'bb',
+      patterns: [],
+
+      firstLineMatch: null,
+      repository: {}
+    });
   }
 }
