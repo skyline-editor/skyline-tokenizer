@@ -75,25 +75,97 @@ export class BinaryLanguageFile {
     return language;
   }
 
-  static buildPatterns(patterns: LanguagePattern[]) {
-    return [];
+  static addName(names: Array<string>, name: string): number {
+    const index = names.indexOf(name);
+    if (index > -1) return index;
+
+    names.push(name);
+    return names.length - 1;
   }
-  static buildRepository(repository: {[key: string]: LanguagePattern}) {
-    return []
+
+  static parseInclude(include: string, names: Array<string>) {
+    if (!include.startsWith('#')) return include;
+
+    const index = this.addName(names, include.substr(1));
+    return `#${index}`;
+  }
+
+  static buildCaptures(captures: LanguagePattern['captures']): Result[] {
+    const results: Array<Result> = [];
+
+    const keys = Object.keys(captures);
+    for (let i = 0; i < keys.length; i++) {
+      const key = parseInt(keys[i]);
+      const value = captures[key];
+      const name = value.name;
+
+      results.push([ key.toString(), name ]);
+    }
+
+    return results;
+  }
+
+  static buildPattern(pattern: LanguagePattern, names: Array<string>): Result {
+    const data = [
+      pattern.name ?? null,
+      pattern.match ?? null,
+
+      pattern.begin ?? null,
+      pattern.end ?? null,
+
+      pattern.contentName ?? null,
+
+      pattern.captures ? this.buildCaptures(pattern.captures) : null,
+      pattern.beginCaptures ? this.buildCaptures(pattern.beginCaptures) : null,
+      pattern.endCaptures ? this.buildCaptures(pattern.endCaptures) : null,
+
+      pattern.include ? this.parseInclude(pattern.include, names) : null,
+      pattern.patterns ? this.buildPatterns(pattern.patterns, names) : null,
+    ];
+    return data;
+  }
+
+  static buildPatterns(patterns: LanguagePattern[], names: Array<string>): Result[] {
+    const results: Array<Result> = [];
+    for (let i = 0; i < patterns.length; i++) {
+      results.push(this.buildPattern(patterns[i], names));
+    }
+    
+    return results;
+  }
+  static buildRepository(repository: {[key: string]: LanguagePattern}, names: Array<string>): Result[] {
+    const results: Array<Result> = [];
+    const map = new Map<string, Result>();
+
+    const keys = Object.keys(repository);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      map.set(key, this.buildPattern(repository[key], names));
+    }
+    for (let i = 0; i < names.length; i++) {
+      const key = names[i];
+      if (!map.has(key)) continue;
+
+      results.push(map.get(key));
+    }
+
+    return results;
   }
 
   static buildLanguage(language: LanguageConfig) {
+    const names = [];
+
     const data = [
       // required
       language.scopeName,
       language.fileTypes,
       language.foldingStartMarker,
       language.foldingStopMarker,
-      this.buildPatterns(language.patterns),
+      this.buildPatterns(language.patterns, names),
 
       // optional
       language.firstLineMatch ?? null,
-      language.repository ? this.buildRepository(language.repository) : null
+      language.repository ? this.buildRepository(language.repository, names) : null
     ];
 
     return this.build(data, this.languageSchema);
@@ -253,21 +325,62 @@ export class BinaryLanguageFile {
     return bytes;
   }
 
-  static parsePatterns(patterns: Array<Result>): Array<LanguagePattern> {
-    return [];
+  static parseCaptures(captures: Array<[string, string]>): LanguagePattern["captures"] {
+    const result: LanguagePattern["captures"] = {};
+
+    for (let i = 0; i < captures.length; i++) {
+      const key = parseInt(captures[i][0]);
+      const name = captures[i][1];
+
+      result[key] = { name };
+    }
+
+    return result;
+  }
+
+  static parsePattern(pattern: Array<Result>): LanguagePattern {
+    const result: LanguagePattern = {
+      name: pattern[0] as string,
+      match: pattern[1] as string,
+
+      begin: pattern[2] as string,
+      end: pattern[3] as string,
+
+      contentName: pattern[4] as string,
+
+      captures: pattern[5] && this.parseCaptures(pattern[5] as Array<[string, string]>),
+      beginCaptures: pattern[6] && this.parseCaptures(pattern[6] as Array<[string, string]>),
+      endCaptures: pattern[7] && this.parseCaptures(pattern[7] as Array<[string, string]>),
+
+      include: pattern[8] as string,
+      patterns: pattern[9] && this.parsePatterns(pattern[9] as Array<Array<Result>>),
+    };
+
+    return result;
+  }
+
+  static parsePatterns(patterns: Array<Array<Result>>): Array<LanguagePattern> {
+    const result: Array<LanguagePattern> = [];
+    for (let i = 0; i < patterns.length; i++) result.push(this.parsePattern(patterns[i]));
+
+    return result;
   }
   static parseRepository(patterns: Array<Result>): {[key: string]: LanguagePattern} {
-    return {};
+    const result: {[key: string]: LanguagePattern} = {};
+    for (let i = 0; i < patterns.length; i++) result[i.toString()] = this.parsePattern(patterns[i] as Array<Result>);
+
+    return result;
   }
 
   static parseLanguage(bytes: Uint8Array) {
     const data = this.parse(bytes, this.languageSchema);
+
     const language = {
       scopeName: data[0] as string,
       fileTypes: data[1] as Array<string>,
       foldingStartMarker: data[2] as string,
       foldingStopMarker: data[3] as string,
-      patterns: this.parsePatterns(data[4] as Array<Result>),
+      patterns: this.parsePatterns(data[4] as Array<Array<Result>>),
 
       firstLineMatch: data[5] ?? null,
       repository: data[6] ? this.parseRepository(data[6] as Array<Result>) : null,
@@ -295,12 +408,12 @@ export class BinaryLanguageFile {
   }
 
   static parseNumber(bytes: Uint8Array, pos: number): [number, number] {
-    let value = bytes[pos] % 0x7f;
+    let value = bytes[pos] & 0x7f;
     let i = 0;
 
     while (bytes[pos + i] > 0x7f) {
       i++;
-      value += (bytes[pos + i] % 0x7f) << (7 * i);
+      value |= (bytes[pos + i] & 0x7f) << (7 * i);
     }
 
     return [value, pos + i + 1];
@@ -314,11 +427,8 @@ export class BinaryLanguageFile {
     return [str, pos + length];
   }
   static parseTuple(bytes: Uint8Array, pos: number, structure: SchemaTuple): [Result, number] {
-    let length: number;
-    [length, pos] = this.parseNumber(bytes, pos);
-    
     const values: Result = [];
-    for (let i = 0; i < length; i++) {
+    for (let i = 0; i < structure.values.length; i++) {
       let value;
       [value, pos] = this.parseType(bytes, pos, structure.values[i]);
       values.push(value);
