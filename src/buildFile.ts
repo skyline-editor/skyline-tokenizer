@@ -1,4 +1,5 @@
 import { LanguageConfig, LanguageParser, LanguagePattern } from "languageParser";
+import * as fs from "fs";
 
 export type SchemaString = {
   type: 'string';
@@ -51,7 +52,7 @@ export class BinaryLanguageFile {
       string(), // end
       string(), // contentName
       array(tuple(string() /* index */, string() /* name */)), // captures
-      array(tuple(string() /* index */, string() /* name */)), // beginnCaptures
+      array(tuple(string() /* index */, string() /* name */)), // beginCaptures
       array(tuple(string() /* index */, string() /* name */)), // endCaptures
 
       string(), // include
@@ -59,6 +60,7 @@ export class BinaryLanguageFile {
     ];
 
     const language = schema(
+      // required
       [
         string(), // scopeName
         array(string()), // fileTypes
@@ -66,6 +68,8 @@ export class BinaryLanguageFile {
         string(), // foldingEndMarker
         array(pattern), // patterns
       ],
+
+      // optional
       [
         string(), // firstLineMatch
         array(pattern), // repository
@@ -152,15 +156,26 @@ export class BinaryLanguageFile {
     return results;
   }
 
+  static parseLanguageFile(file: string): LanguageConfig {
+    const data = fs.readFileSync(file);
+    const result = this.parseLanguage(data);
+    
+    return result;
+  }
+  static buildLanguageFile(language: LanguageConfig, file: string): void {
+    const data = this.buildLanguage(language);
+    fs.writeFileSync(file, data, 'binary');
+  }
+
   static buildLanguage(language: LanguageConfig) {
     const names = [];
 
     const data = [
       // required
-      language.scopeName,
-      language.fileTypes,
-      language.foldingStartMarker,
-      language.foldingStopMarker,
+      language.scopeName ?? '',
+      language.fileTypes ?? [],
+      language.foldingStartMarker ?? '',
+      language.foldingStopMarker ?? '',
       this.buildPatterns(language.patterns, names),
 
       // optional

@@ -1,0 +1,48 @@
+{
+  "scopeName": "hello",
+  "fileTypes": [
+    "abc",
+    "def"
+  ],
+  "foldingStartMarker": "aa",
+  "foldingStopMarker": "bb",
+  "patterns": [
+    {
+      "begin": "aa",
+      "end": "bb",
+      "beginCaptures": {
+        "1": {
+          "name": "a"
+        },
+        "2": {
+          "name": "b"
+        }
+      },
+      "endCaptures": {
+        "1": {
+          "name": "c"
+        },
+        "2": {
+          "name": "d"
+        }
+      },
+      "contentName": "e",
+      "patterns": [
+        {
+          "include": "#test"
+        }
+      ]
+    }
+  ],
+  "repository": {
+    "test": {
+      "name": "test",
+      "match": "hello test",
+      "captures": {
+        "0": {
+          "name": "test"
+        }
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@
   "description": "The tokenizing module in skyline-editor",
   "main": "dist/index.js",
   "scripts": {
+    "build": "tsc",
     "test": "mocha 'tests/**/*.test.ts'"
   },
   "repository": {
